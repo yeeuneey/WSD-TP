@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  role          String    @default("USER") // USER / ADMIN
+  status        String    @default("ACTIVE")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  StudyMembers  StudyMember[]
+  Attendance    AttendanceRecord[]
+
+  // ★ Study의 leader 와 짝을 이루는 역관계 필드
+  studiesLed    Study[]   @relation("UserLeaderStudies")
+}
+
+model Study {
+  id            Int          @id @default(autoincrement())
+  title         String
+  description   String
+  category      String?
+  maxMembers    Int?
+  status        String       @default("RECRUITING")
+  leaderId      Int
+  leader        User         @relation("UserLeaderStudies", fields: [leaderId], references: [id])
+  createdAt     DateTime     @default(now())
+
+  StudyMembers  StudyMember[]
+  Sessions      AttendanceSession[]
+}
+
+model StudyMember {
+  id          Int      @id @default(autoincrement())
+  studyId     Int
+  userId      Int
+  memberRole  String   @default("MEMBER") // LEADER/MEMBER
+  status      String   @default("APPROVED") 
+  joinedAt    DateTime @default(now())
+
+  study       Study    @relation(fields: [studyId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@unique([studyId, userId])
+}
+
+model AttendanceSession {
+  id        Int      @id @default(autoincrement())
+  studyId   Int
+  title     String
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  study     Study    @relation(fields: [studyId], references: [id])
+  records   AttendanceRecord[]
+}
+
+model AttendanceRecord {
+  id         Int      @id @default(autoincrement())
+  sessionId  Int
+  userId     Int
+  status     String   // PRESENT/LATE/ABSENT
+  recordedAt DateTime @default(now())
+
+  session    AttendanceSession @relation(fields: [sessionId], references: [id])
+  user       User              @relation(fields: [userId], references: [id])
+}

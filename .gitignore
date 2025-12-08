@@ -1,0 +1,20 @@
+# Environment variables
+.env
+.env.*
+
+# 하지만 example은 업로드해야 하므로 제외
+!.env.example
+
+# Node
+node_modules/
+
+# Build output
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Prisma
+prisma/migrations/*-shadow-database*
