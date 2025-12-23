@@ -1,8 +1,24 @@
 import { Router } from "express";
-import type { Prisma, Study, User } from "@prisma/client";
+import type {
+  Prisma,
+  Study,
+  StudyMember,
+  User,
+} from "@prisma/client";
 import { prisma } from "../../config/db";
 import { requireAuth } from "../../middlewares/firebase-auth";
 import { createHttpError } from "../../utils/http-error";
+import {
+  arrayOf,
+  optionalEnum,
+  optionalNumber,
+  optionalString,
+  requiredDateString,
+  requiredEnum,
+  requiredNumber,
+  requiredString,
+  validateObject,
+} from "../../utils/validation";
 
 const router = Router();
 
@@ -14,38 +30,57 @@ const parseId = (raw: string, label: string): number => {
   return parsed;
 };
 
+const isAdmin = (user: User) => user.role === "ADMIN";
+const isLeader = (study: Study, user: User) => study.leaderId === user.id;
+
 const ensureLeaderOrAdmin = (study: Study, user: User): void => {
-  if (user.role === "ADMIN") return;
-  if (study.leaderId !== user.id) {
-    throw createHttpError(403, "Only the study leader or admin can perform this action");
-  }
+  if (isAdmin(user) || isLeader(study, user)) return;
+  throw createHttpError(403, "Only the study leader or admin can perform this action");
 };
 
-const ensureApprovedMember = async (studyId: number, user: User) => {
-  if (user.role === "ADMIN") return;
-  const membership = await prisma.studyMember.findUnique({
-    where: { studyId_userId: { studyId, userId: user.id } },
+const findMembership = async (
+  studyId: number,
+  userId: number,
+): Promise<StudyMember | null> =>
+  prisma.studyMember.findUnique({
+    where: { studyId_userId: { studyId, userId } },
   });
 
-  if (!membership || membership.status !== "APPROVED") {
-    throw createHttpError(403, "Study membership approval is required");
+const ensureMembership = async (
+  studyId: number,
+  user: User,
+  {
+    statuses = ["APPROVED"],
+    allowLeader = true,
+  }: { statuses?: string[]; allowLeader?: boolean } = {},
+) => {
+  if (isAdmin(user)) return null;
+
+  const membership = await findMembership(studyId, user.id);
+  if (!membership) {
+    throw createHttpError(403, "Membership required for this study");
   }
 
-  return membership;
+  if (allowLeader && membership.memberRole === "LEADER") return membership;
+  if (statuses.includes(membership.status)) return membership;
+
+  throw createHttpError(403, "Insufficient membership status for this action");
 };
+
+const ensureApprovedMember = async (studyId: number, user: User) =>
+  ensureMembership(studyId, user, { statuses: ["APPROVED"], allowLeader: true });
 
 router.post("/studies", ...requireAuth, async (req, res, next) => {
   try {
-    const { title, description, category, maxMembers } = req.body as {
-      title?: string;
-      description?: string;
-      category?: string;
-      maxMembers?: number;
-    };
-
-    if (!title || !description) {
-      throw createHttpError(400, "title and description are required");
-    }
+    const { title, description, category, maxMembers } = validateObject(
+      {
+        title: requiredString("title"),
+        description: requiredString("description"),
+        category: optionalString("category"),
+        maxMembers: optionalNumber("maxMembers", { min: 1 }),
+      },
+      req.body,
+    );
 
     const leaderId = req.authUser!.id;
 
@@ -179,13 +214,21 @@ router.patch("/studies/:id", ...requireAuth, async (req, res, next) => {
 
     ensureLeaderOrAdmin(study, req.authUser!);
 
-    const { title, description, category, maxMembers, status } = req.body as {
-      title?: string;
-      description?: string;
-      category?: string;
-      maxMembers?: number;
-      status?: string;
-    };
+    const { title, description, category, maxMembers, status } = validateObject(
+      {
+        title: optionalString("title"),
+        description: optionalString("description"),
+        category: optionalString("category"),
+        maxMembers: optionalNumber("maxMembers", { min: 1 }),
+        status: optionalEnum("status", [
+          "RECRUITING",
+          "CLOSED",
+          "INACTIVE",
+          "ARCHIVED",
+        ]),
+      },
+      req.body,
+    );
 
     const data: Prisma.StudyUpdateInput = {};
     if (title) data.title = title.trim();
@@ -348,17 +391,10 @@ router.get("/studies/:id/members", ...requireAuth, async (req, res, next) => {
     });
     if (!study) throw createHttpError(404, "Study not found");
 
-    const membership = await prisma.studyMember.findUnique({
-      where: { studyId_userId: { studyId, userId: req.authUser!.id } },
+    await ensureMembership(studyId, req.authUser!, {
+      statuses: ["APPROVED"],
+      allowLeader: true,
     });
-
-    if (
-      req.authUser!.role !== "ADMIN" &&
-      study.leaderId !== req.authUser!.id &&
-      (!membership || membership.status !== "APPROVED")
-    ) {
-      throw createHttpError(403, "Members only");
-    }
 
     const members = await prisma.studyMember.findMany({
       where: { studyId },
@@ -385,18 +421,18 @@ router.post(
 
       ensureLeaderOrAdmin(study, req.authUser!);
 
-      const { title, date } = req.body as { title?: string; date?: string };
-      if (!title || !date) throw createHttpError(400, "title and date are required");
-
-      const sessionDate = new Date(date);
-      if (Number.isNaN(sessionDate.getTime())) {
-        throw createHttpError(400, "Invalid date format");
-      }
+      const { title, date } = validateObject(
+        {
+          title: requiredString("title"),
+          date: requiredDateString("date"),
+        },
+        req.body,
+      );
 
       const session = await prisma.attendanceSession.create({
         data: {
-          title: title.trim(),
-          date: sessionDate,
+          title,
+          date,
           studyId,
         },
       });
@@ -442,7 +478,13 @@ router.patch("/sessions/:sessionId", ...requireAuth, async (req, res, next) => {
 
     ensureLeaderOrAdmin(session.study, req.authUser!);
 
-    const { title, date } = req.body as { title?: string; date?: string };
+    const { title, date } = validateObject(
+      {
+        title: optionalString("title"),
+        date: optionalString("date"),
+      },
+      req.body,
+    );
     const data: Prisma.AttendanceSessionUpdateInput = {};
     if (title) data.title = title.trim();
     if (date) {
@@ -476,26 +518,29 @@ router.post(
 
       ensureLeaderOrAdmin(session.study, req.authUser!);
 
-      const allowedStatuses = new Set(["PRESENT", "LATE", "ABSENT"]);
-      const recordsPayload = Array.isArray((req.body as { records?: unknown }).records)
+      const payload = Array.isArray((req.body as { records?: unknown }).records)
         ? (req.body as { records: unknown }).records
-        : Array.isArray(req.body)
-          ? req.body
-          : undefined;
+        : req.body;
 
-      const candidates =
-        recordsPayload ??
-        (req.body && "userId" in (req.body as Record<string, unknown>) ? [req.body] : []);
-
-      const records = (candidates as Array<Record<string, unknown>>).map((item) => ({
-        userId: Number(item.userId),
-        status: typeof item.status === "string" ? item.status : "",
-      }));
-
-      if (!records.length) throw createHttpError(400, "No attendance records provided");
-      if (records.some((r) => Number.isNaN(r.userId) || !allowedStatuses.has(r.status))) {
-        throw createHttpError(400, "Invalid attendance payload");
-      }
+      const records = validateObject(
+        {
+          records: arrayOf(
+            "records",
+            (value) => {
+              const { userId, status } = validateObject(
+                {
+                  userId: requiredNumber("userId", { min: 1 }),
+                  status: requiredEnum("status", ["PRESENT", "LATE", "ABSENT"]),
+                },
+                value,
+              );
+              return { userId, status };
+            },
+            { minLength: 1 },
+          ),
+        },
+        { records: payload },
+      ).records;
 
       const userIds = Array.from(new Set(records.map((r) => r.userId)));
       const approvedMembers = await prisma.studyMember.findMany({
