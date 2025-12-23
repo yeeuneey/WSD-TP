@@ -11,7 +11,12 @@ import { prisma } from "./config/db";
 const app = express();
 
 app.use(cors());
-app.use(helmet());
+// Allow external Swagger UI assets; keep other helmet protections.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  }),
+);
 app.use(express.json());
 app.use(requestLogger);
 
@@ -48,6 +53,17 @@ app.get("/docs.json", (_req, res) => {
 });
 
 app.get("/docs", (_req, res) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self' https: data:",
+      "script-src 'self' 'unsafe-inline' https://unpkg.com",
+      "style-src 'self' 'unsafe-inline' https://unpkg.com",
+      "connect-src 'self' https://unpkg.com",
+      "img-src 'self' data: https:",
+      "font-src 'self' https: data:",
+    ].join("; "),
+  );
   res.type("html").send(swaggerHtml);
 });
 

@@ -1,0 +1,1138 @@
+openapi: "3.0.3"
+info:
+  title: "GoGoStudy API"
+  version: "1.0.0"
+  description: "Auth, user, study, and attendance APIs for GoGoStudy."
+servers:
+  -
+    url: "http://localhost:8080"
+    description: "Local"
+tags:
+  -
+    name: "Auth"
+  -
+    name: "Users"
+  -
+    name: "Admin"
+  -
+    name: "Studies"
+  -
+    name: "Health"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  schemas:
+    ErrorResponse:
+      type: "object"
+      properties:
+        timestamp:
+          type: "string"
+          format: "date-time"
+        path:
+          type: "string"
+        status:
+          type: "integer"
+        code:
+          type: "string"
+        message:
+          type: "string"
+        details:
+          type: "object"
+          nullable: true
+    User:
+      type: "object"
+      properties:
+        id:
+          type: "integer"
+        email:
+          type: "string"
+        name:
+          type: "string"
+        role:
+          type: "string"
+        status:
+          type: "string"
+        provider:
+          type: "string"
+        providerId:
+          type: "string"
+          nullable: true
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    AuthResponse:
+      type: "object"
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        accessToken:
+          type: "string"
+        refreshToken:
+          type: "string"
+    Study:
+      type: "object"
+      properties:
+        id:
+          type: "integer"
+        title:
+          type: "string"
+        description:
+          type: "string"
+        category:
+          type: "string"
+          nullable: true
+        maxMembers:
+          type: "integer"
+          nullable: true
+        status:
+          type: "string"
+        leaderId:
+          type: "integer"
+        createdAt:
+          type: "string"
+          format: "date-time"
+    StudyMember:
+      type: "object"
+      properties:
+        id:
+          type: "integer"
+        studyId:
+          type: "integer"
+        userId:
+          type: "integer"
+        memberRole:
+          type: "string"
+        status:
+          type: "string"
+        joinedAt:
+          type: "string"
+          format: "date-time"
+    AttendanceSession:
+      type: "object"
+      properties:
+        id:
+          type: "integer"
+        studyId:
+          type: "integer"
+        title:
+          type: "string"
+        date:
+          type: "string"
+          format: "date-time"
+        createdAt:
+          type: "string"
+          format: "date-time"
+    AttendanceRecord:
+      type: "object"
+      properties:
+        id:
+          type: "integer"
+        sessionId:
+          type: "integer"
+        userId:
+          type: "integer"
+        status:
+          type: "string"
+        recordedAt:
+          type: "string"
+          format: "date-time"
+  responses:
+    BadRequest:
+      description: "Bad Request"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: "Unauthorized"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: "Forbidden"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: "Not Found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: "Conflict"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unprocessable:
+      description: "Unprocessable Entity"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: "Internal Server Error"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+paths:
+  /auth/register:
+    post:
+      tags:
+        - "Auth"
+      summary: "Register a new user"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "email"
+                - "password"
+                - "name"
+              properties:
+                email:
+                  type: "string"
+                  example: "user@example.com"
+                password:
+                  type: "string"
+                  example: "Password123!"
+                name:
+                  type: "string"
+                  example: "홍길동"
+      responses:
+        201:
+          description: "Registered"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /auth/login:
+    post:
+      tags:
+        - "Auth"
+      summary: "Login"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "email"
+                - "password"
+              properties:
+                email:
+                  type: "string"
+                password:
+                  type: "string"
+      responses:
+        200:
+          description: "Logged in"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /auth/refresh:
+    post:
+      tags:
+        - "Auth"
+      summary: "Refresh tokens"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "refreshToken"
+              properties:
+                refreshToken:
+                  type: "string"
+      responses:
+        200:
+          description: "Tokens refreshed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /auth/logout:
+    post:
+      tags:
+        - "Auth"
+      summary: "Logout"
+      security:
+        -
+          bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "refreshToken"
+              properties:
+                refreshToken:
+                  type: "string"
+      responses:
+        200:
+          description: "Logged out"
+  /users/me:
+    get:
+      tags:
+        - "Users"
+      summary: "Get my profile"
+      security:
+        -
+          bearerAuth: []
+      responses:
+        200:
+          description: "Profile"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+    patch:
+      tags:
+        - "Users"
+      summary: "Update my profile"
+      security:
+        -
+          bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "name"
+              properties:
+                name:
+                  type: "string"
+      responses:
+        200:
+          description: "Updated"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+  /users/me/password:
+    patch:
+      tags:
+        - "Users"
+      summary: "Change password"
+      security:
+        -
+          bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "currentPassword"
+                - "newPassword"
+              properties:
+                currentPassword:
+                  type: "string"
+                newPassword:
+                  type: "string"
+      responses:
+        200:
+          description: "Password updated"
+  /admin/users:
+    get:
+      tags:
+        - "Admin"
+      summary: "List users"
+      security:
+        -
+          bearerAuth: []
+      responses:
+        200:
+          description: "Users list"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  users:
+                    type: "array"
+                    items:
+                      $ref: "#/components/schemas/User"
+  /admin/users/{id}/role:
+    patch:
+      tags:
+        - "Admin"
+      summary: "Update user role"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "role"
+              properties:
+                role:
+                  type: "string"
+                  example: "ADMIN"
+      responses:
+        200:
+          description: "Role updated"
+  /admin/users/{id}/deactivate:
+    patch:
+      tags:
+        - "Admin"
+      summary: "Deactivate user"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "id"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        200:
+          description: "User deactivated"
+  /studies:
+    get:
+      tags:
+        - "Studies"
+      summary: "List studies"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "q"
+          in: "query"
+          schema:
+            type: "string"
+          description: "Search by title/description"
+        -
+          name: "category"
+          in: "query"
+          schema:
+            type: "string"
+        -
+          name: "status"
+          in: "query"
+          schema:
+            type: "string"
+        -
+          name: "page"
+          in: "query"
+          schema:
+            type: "integer"
+            minimum: 1
+          description: "Page number"
+        -
+          name: "pageSize"
+          in: "query"
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 50
+          description: "Items per page"
+      responses:
+        200:
+          description: "Studies listed"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  data:
+                    type: "array"
+                    items:
+                      $ref: "#/components/schemas/Study"
+                  page:
+                    type: "integer"
+                  pageSize:
+                    type: "integer"
+                  total:
+                    type: "integer"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        500:
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags:
+        - "Studies"
+      summary: "Create study"
+      security:
+        -
+          bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "title"
+                - "description"
+              properties:
+                title:
+                  type: "string"
+                description:
+                  type: "string"
+                category:
+                  type: "string"
+                maxMembers:
+                  type: "integer"
+      responses:
+        201:
+          description: "Study created"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  study:
+                    $ref: "#/components/schemas/Study"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}/join:
+    post:
+      tags:
+        - "Studies"
+      summary: "Request to join study (pending approval by leader)"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        201:
+          description: "Join request created (status=PENDING until approved)"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  membership:
+                    $ref: "#/components/schemas/StudyMember"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}/sessions:
+    get:
+      tags:
+        - "Studies"
+      summary: "List sessions for study"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        200:
+          description: "Sessions listed"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  sessions:
+                    type: "array"
+                    items:
+                      $ref: "#/components/schemas/AttendanceSession"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        500:
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags:
+        - "Studies"
+      summary: "Create attendance session"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "title"
+                - "date"
+              properties:
+                title:
+                  type: "string"
+                date:
+                  type: "string"
+                  format: "date-time"
+      responses:
+        201:
+          description: "Session created"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  session:
+                    $ref: "#/components/schemas/AttendanceSession"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}/sessions/{sessionId}/attendance:
+    post:
+      tags:
+        - "Studies"
+      summary: "Record attendance"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+        -
+          name: "sessionId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "status"
+              properties:
+                status:
+                  type: "string"
+                  example: "PRESENT"
+      responses:
+        201:
+          description: "Attendance recorded"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  record:
+                    $ref: "#/components/schemas/AttendanceRecord"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        422:
+          $ref: "#/components/responses/Unprocessable"
+        500:
+          $ref: "#/components/responses/InternalError"
+    get:
+      tags:
+        - "Studies"
+      summary: "List attendance for a session"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+        -
+          name: "sessionId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        200:
+          description: "Attendance records"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  sessionId:
+                    type: "integer"
+                  records:
+                    type: "array"
+                    items:
+                      allOf:
+                        -
+                          $ref: "#/components/schemas/AttendanceRecord"
+                        -
+                          type: "object"
+                          properties:
+                            user:
+                              type: "object"
+                              properties:
+                                id:
+                                  type: "integer"
+                                email:
+                                  type: "string"
+                                name:
+                                  type: "string"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}/attendance/summary:
+    get:
+      tags:
+        - "Studies"
+      summary: "Attendance summary for study"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        200:
+          description: "Summary"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  studyId:
+                    type: "integer"
+                  summary:
+                    type: "object"
+                    additionalProperties:
+                      type: "integer"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /health:
+    get:
+      tags:
+        - "Health"
+      summary: "Health check"
+      responses:
+        200:
+          description: "Service is healthy"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  status:
+                    type: "string"
+                    example: "OK"
+                  service:
+                    type: "string"
+                    example: "GoGoStudy API"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}:
+    get:
+      tags:
+        - "Studies"
+      summary: "Get study detail"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        200:
+          description: "Study detail"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  study:
+                    $ref: "#/components/schemas/Study"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        404:
+          $ref: "#/components/responses/NotFound"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}/sessions/{sessionId}:
+    get:
+      tags:
+        - "Studies"
+      summary: "Get session detail"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+        -
+          name: "sessionId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        200:
+          description: "Session detail"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  session:
+                    $ref: "#/components/schemas/AttendanceSession"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}/attendance/users/{userId}:
+    get:
+      tags:
+        - "Studies"
+      summary: "Attendance summary for member"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+        -
+          name: "userId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        200:
+          description: "Member attendance summary"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  studyId:
+                    type: "integer"
+                  userId:
+                    type: "integer"
+                  totalSessions:
+                    type: "integer"
+                  summary:
+                    type: "object"
+                    additionalProperties:
+                      type: "integer"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}/members:
+    get:
+      tags:
+        - "Studies"
+      summary: "List study members"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+        -
+          name: "status"
+          in: "query"
+          schema:
+            type: "string"
+      responses:
+        200:
+          description: "Members listed"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  members:
+                    type: "array"
+                    items:
+                      allOf:
+                        -
+                          $ref: "#/components/schemas/StudyMember"
+                        -
+                          type: "object"
+                          properties:
+                            user:
+                              type: "object"
+                              properties:
+                                id:
+                                  type: "integer"
+                                email:
+                                  type: "string"
+                                name:
+                                  type: "string"
+                                role:
+                                  type: "string"
+                                status:
+                                  type: "string"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}/members/{userId}/status:
+    patch:
+      tags:
+        - "Studies"
+      summary: "Update member status (approve/reject)"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+        -
+          name: "userId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "status"
+              properties:
+                status:
+                  type: "string"
+                  enum:
+                    - "APPROVED"
+                    - "PENDING"
+                    - "REJECTED"
+      responses:
+        200:
+          description: "Membership updated"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  membership:
+                    $ref: "#/components/schemas/StudyMember"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/Unprocessable"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}/members/{userId}:
+    delete:
+      tags:
+        - "Studies"
+      summary: "Remove member from study"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+        -
+          name: "userId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        200:
+          description: "Member removed"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        500:
+          $ref: "#/components/responses/InternalError"
+  /studies/{studyId}/members/leave:
+    post:
+      tags:
+        - "Studies"
+      summary: "Leave study"
+      security:
+        -
+          bearerAuth: []
+      parameters:
+        -
+          name: "studyId"
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+      responses:
+        200:
+          description: "Left study"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        404:
+          $ref: "#/components/responses/NotFound"
+        500:
+          $ref: "#/components/responses/InternalError"
