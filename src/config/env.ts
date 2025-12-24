@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+import * as dotenv from "dotenv";
 
 dotenv.config();
 
@@ -9,9 +9,6 @@ const requiredVars = {
   REDIS_HOST: process.env.REDIS_HOST,
   REDIS_PORT: process.env.REDIS_PORT,
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
-  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
-  FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
 } as const;
 
 for (const [key, value] of Object.entries(requiredVars)) {
@@ -40,7 +37,11 @@ export const env = {
   JWT_ACCESS_SECRET: requiredVars.JWT_ACCESS_SECRET!,
   JWT_REFRESH_SECRET: requiredVars.JWT_REFRESH_SECRET!,
   GOOGLE_CLIENT_ID: requiredVars.GOOGLE_CLIENT_ID!,
-  FIREBASE_PROJECT_ID: requiredVars.FIREBASE_PROJECT_ID!,
-  FIREBASE_CLIENT_EMAIL: requiredVars.FIREBASE_CLIENT_EMAIL!,
-  FIREBASE_PRIVATE_KEY: requiredVars.FIREBASE_PRIVATE_KEY!,
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY
+    ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
+    : undefined,
+  FIREBASE_WEB_API_KEY: process.env.FIREBASE_WEB_API_KEY,
+  FIREBASE_WEB_CLIENT_ID: process.env.FIREBASE_WEB_CLIENT_ID,
 };

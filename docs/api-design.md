@@ -50,17 +50,50 @@
   - Header: `Authorization: Bearer <accessToken>`
   - Body: `{ title, description, category?, maxMembers? }`
   - Response: `{ study }`
+- `GET /studies`
+  - Header: `Authorization: Bearer <accessToken>`
+  - Query: `q?, category?, status?, page?, pageSize?`
+  - Response: `{ data: Study[], page, pageSize, total }`
+- `GET /studies/:studyId`
+  - Header: `Authorization: Bearer <accessToken>`
+  - Response: `{ study }`
 - `POST /studies/:studyId/join`
   - Header: `Authorization: Bearer <accessToken>`
+  - Response: `{ membership }` (status=`PENDING`; leader 승인 필요)
+- `GET /studies/:studyId/members`
+  - Header: `Authorization: Bearer <accessToken>` (Study Leader)
+  - Query: `status?`
+  - Response: `{ members }`
+- `PATCH /studies/:studyId/members/:userId/status`
+  - Header: `Authorization: Bearer <accessToken>` (Study Leader)
+  - Body: `{ status: APPROVED | PENDING | REJECTED }` (정원 초과 시 APPROVED 불가)
   - Response: `{ membership }`
+- `DELETE /studies/:studyId/members/:userId`
+  - Header: `Authorization: Bearer <accessToken>` (Study Leader)
+  - Response: `{ success: true }`
+- `POST /studies/:studyId/members/leave`
+  - Header: `Authorization: Bearer <accessToken>` (Member)
+  - Response: `{ success: true }` (리더는 탈퇴 불가)
 - `POST /studies/:studyId/sessions`
   - Header: `Authorization: Bearer <accessToken>` (Study Leader)
   - Body: `{ title, date }`
   - Response: `{ session }`
+- `GET /studies/:studyId/sessions`
+  - Header: `Authorization: Bearer <accessToken>` (Approved Member)
+  - Response: `{ sessions }`
+- `GET /studies/:studyId/sessions/:sessionId`
+  - Header: `Authorization: Bearer <accessToken>` (Approved Member)
+  - Response: `{ session }`
 - `POST /studies/:studyId/sessions/:sessionId/attendance`
-  - Header: `Authorization: Bearer <accessToken>` (Study Member)
+  - Header: `Authorization: Bearer <accessToken>` (Approved Member)
   - Body: `{ status: PRESENT | LATE | ABSENT }`
   - Response: `{ record }`
+- `GET /studies/:studyId/sessions/:sessionId/attendance`
+  - Header: `Authorization: Bearer <accessToken>` (Study Leader)
+  - Response: `{ sessionId, records }`
 - `GET /studies/:studyId/attendance/summary`
   - Header: `Authorization: Bearer <accessToken>` (Study Leader)
   - Response: `{ studyId, summary }`
+- `GET /studies/:studyId/attendance/users/:userId`
+  - Header: `Authorization: Bearer <accessToken>` (Study Leader 또는 본인)
+  - Response: `{ studyId, userId, totalSessions, summary }`
