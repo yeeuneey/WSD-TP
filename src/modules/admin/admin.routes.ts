@@ -55,8 +55,8 @@ router.get("/studies", async (req, res, next) => {
         ? req.query.status
         : undefined;
     const pagination = parsePagination({
-      page: req.query.page ?? undefined,
-      size: req.query.size ?? undefined,
+      page: typeof req.query.page === "string" ? req.query.page : undefined,
+      size: typeof req.query.size === "string" ? req.query.size : undefined,
     });
     const where: Record<string, unknown> = {};
     if (status) {

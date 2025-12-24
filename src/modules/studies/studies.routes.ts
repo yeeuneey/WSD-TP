@@ -117,8 +117,12 @@ router.get("/", authenticate, async (req, res, next) => {
   try {
     const { q, keyword, category, status, page, pageSize, size, sort } = req.query;
     const pagination = parsePagination({
-      page: page ?? undefined,
-      size: (pageSize ?? size) ?? undefined,
+      page: typeof page === "string" ? page : undefined,
+      size: typeof pageSize === "string"
+        ? pageSize
+        : typeof size === "string"
+          ? size
+          : undefined,
     });
     const { orderBy, sortString } = parseSortParam(
       typeof sort === "string" ? sort : undefined,
@@ -764,8 +768,13 @@ router.get(
       const studyId = parseId(req.params.studyId, "study");
       const { status } = req.query;
       const { page, size, skip, take } = parsePagination({
-        page: req.query.page ?? undefined,
-        size: (req.query.pageSize ?? req.query.size) ?? undefined,
+        page: typeof req.query.page === "string" ? req.query.page : undefined,
+        size:
+          typeof req.query.pageSize === "string"
+            ? req.query.pageSize
+            : typeof req.query.size === "string"
+              ? req.query.size
+              : undefined,
       });
       const where: any = { studyId };
       const keyword = (req.query.q ?? req.query.keyword) as string | undefined;

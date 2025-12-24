@@ -14,8 +14,8 @@ router.get("/", async (req, res, next) => {
   try {
     const keyword = (req.query.q ?? req.query.keyword) as string | undefined;
     const pagination = parsePagination({
-      page: req.query.page ?? undefined,
-      size: req.query.size ?? undefined,
+      page: typeof req.query.page === "string" ? req.query.page : undefined,
+      size: typeof req.query.size === "string" ? req.query.size : undefined,
     });
     const { orderBy, sortString } = parseSortParam(
       typeof req.query.sort === "string" ? req.query.sort : undefined,
