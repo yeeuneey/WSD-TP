@@ -4,6 +4,7 @@ import authRoutes from "../modules/auth/auth.routes";
 import adminUserRoutes from "../modules/users/admin.routes";
 import adminRoutes from "../modules/admin/admin.routes";
 import studyRoutes from "../modules/studies/studies.routes";
+import sessionRoutes from "../modules/sessions/sessions.routes";
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.use("/users", userRoutes);
 router.use("/admin/users", adminUserRoutes);
 router.use("/admin", adminRoutes);
 router.use("/studies", studyRoutes);
+router.use("/sessions", sessionRoutes);
 
 export default router;

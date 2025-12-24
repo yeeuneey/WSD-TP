@@ -218,7 +218,8 @@ describe("Study and Attendance flows", () => {
     const { body: studyBody } = await request(app)
       .post("/studies")
       .set("Authorization", `Bearer ${leader.accessToken}`)
-      .send({ title: "Cap", description: "Capacity", maxMembers: 1 });
+      // maxMembers includes leader; allow one more approved member
+      .send({ title: "Cap", description: "Capacity", maxMembers: 2 });
     const studyId = studyBody.study.id;
 
     const firstJoin = await request(app)
@@ -235,13 +236,21 @@ describe("Study and Attendance flows", () => {
     const fullJoin = await request(app)
       .post(`/studies/${studyId}/join`)
       .set("Authorization", `Bearer ${otherUser.accessToken}`);
-    expect(fullJoin.status).toBe(409);
+    // join is allowed as pending, capacity enforced at approval time
+    expect(fullJoin.status).toBe(201);
 
     await approveMember({
       studyId,
       userId: member.user.id,
       token: leader.accessToken,
     });
+
+    const approveOther = await approveMember({
+      studyId,
+      userId: otherUser.user.id,
+      token: leader.accessToken,
+    });
+    expect(approveOther.status).toBe(409);
 
     const session = await request(app)
       .post(`/studies/${studyId}/sessions`)

@@ -30,4 +30,9 @@ describe("Study route helpers", () => {
     expect(validateMemberStatus("PENDING")).toBe("PENDING");
     expect(() => validateMemberStatus("UNKNOWN")).toThrow();
   });
+
+  it("caps pageSize at 50 when too large", () => {
+    const result = parsePagination("1", "999");
+    expect(result.pageSize).toBe(50);
+  });
 });

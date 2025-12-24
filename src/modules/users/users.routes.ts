@@ -96,4 +96,29 @@ router.patch("/me/password", authenticate, async (req, res, next) => {
   }
 });
 
+router.get("/me/attendance", authenticate, async (req, res, next) => {
+  try {
+    const records = await prisma.attendanceRecord.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { recordedAt: "desc" },
+      include: {
+        session: {
+          include: {
+            study: {
+              select: { id: true, title: true, status: true, leaderId: true },
+            },
+          },
+        },
+      },
+    });
+
+    res.json({
+      userId: req.user!.id,
+      records,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

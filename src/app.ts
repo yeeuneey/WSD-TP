@@ -45,7 +45,17 @@ const swaggerHtml = `<!doctype html>
 </html>`;
 
 app.get("/health", (req, res) => {
-  res.json({ status: "OK", service: "GoGoStudy API" });
+  const pkgPath = path.resolve(process.cwd(), "package.json");
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  const buildTime = process.env.BUILD_TIME || process.env.VERCEL_BUILD_TIME || process.env.HEROKU_RELEASE_CREATED_AT;
+
+  res.json({
+    status: "OK",
+    service: "GoGoStudy API",
+    version: pkg.version,
+    buildTime: buildTime || new Date().toISOString(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.get("/docs.json", (_req, res) => {

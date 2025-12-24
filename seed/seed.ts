@@ -1,12 +1,31 @@
+import { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../src/config/db";
 import { hashPassword } from "../src/utils/passwords";
 
 const USER_COUNT = 20;
 const STUDY_COUNT = 10;
 const SESSIONS_PER_STUDY = 3;
+const RANDOM_SEED = 42;
+const BASE_DATE = new Date("2024-01-15T00:00:00.000Z");
+
+type PrismaClientLike = PrismaClient | Prisma.TransactionClient;
+
+const createRandom = (seed: number) => {
+  // Deterministic PRNG (Mulberry32)
+  let s = seed;
+  return () => {
+    s |= 0;
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const random = createRandom(RANDOM_SEED);
 
 const randomFrom = <T>(items: T[]): T =>
-  items[Math.floor(Math.random() * items.length)];
+  items[Math.floor(random() * items.length)];
 
 const STUDY_TITLES = [
   "TypeScript Mastery",
@@ -24,15 +43,15 @@ const STUDY_TITLES = [
 const CATEGORIES = ["WEB", "MOBILE", "AI", "BACKEND", "FRONTEND"];
 const STATUSES = ["PRESENT", "LATE", "ABSENT"] as const;
 
-const clearDatabase = async () => {
-  await prisma.attendanceRecord.deleteMany();
-  await prisma.attendanceSession.deleteMany();
-  await prisma.studyMember.deleteMany();
-  await prisma.study.deleteMany();
-  await prisma.user.deleteMany();
+const clearDatabase = async (client: PrismaClientLike) => {
+  await client.attendanceRecord.deleteMany();
+  await client.attendanceSession.deleteMany();
+  await client.studyMember.deleteMany();
+  await client.study.deleteMany();
+  await client.user.deleteMany();
 };
 
-const seedUsers = async () => {
+const seedUsers = async (client: PrismaClientLike) => {
   const passwordHash = await hashPassword("Password123!");
 
   const usersData = Array.from({ length: USER_COUNT }, (_, index) => ({
@@ -42,15 +61,15 @@ const seedUsers = async () => {
     role: index === 0 ? "ADMIN" : "USER",
   }));
 
-  await prisma.user.createMany({ data: usersData });
-  return prisma.user.findMany({ orderBy: { id: "asc" } });
+  await client.user.createMany({ data: usersData, skipDuplicates: true });
+  return client.user.findMany({ orderBy: { id: "asc" } });
 };
 
-const seedStudies = async (userIds: number[]) => {
+const seedStudies = async (client: PrismaClientLike, userIds: number[]) => {
   const studies = await Promise.all(
     Array.from({ length: STUDY_COUNT }, (_, index) => {
       const leaderId = userIds[index % userIds.length];
-      return prisma.study.create({
+      return client.study.create({
         data: {
           title: STUDY_TITLES[index % STUDY_TITLES.length],
           description: `Study ${index + 1} for building skills together.`,
@@ -71,23 +90,29 @@ const seedStudies = async (userIds: number[]) => {
     })),
   );
 
-  await prisma.studyMember.createMany({ data: memberships });
+  await client.studyMember.createMany({
+    data: memberships,
+    skipDuplicates: true,
+  });
 
   return studies;
 };
 
 const seedSessionsAndAttendance = async (
+  client: PrismaClientLike,
   studies: { id: number }[],
   userIds: number[],
 ) => {
   for (const study of studies) {
     const sessions = await Promise.all(
       Array.from({ length: SESSIONS_PER_STUDY }, (_, idx) =>
-        prisma.attendanceSession.create({
+        client.attendanceSession.create({
           data: {
             studyId: study.id,
             title: `Session ${idx + 1}`,
-            date: new Date(Date.now() - idx * 24 * 60 * 60 * 1000),
+            date: new Date(
+              BASE_DATE.getTime() - idx * 24 * 60 * 60 * 1000,
+            ),
           },
         }),
       ),
@@ -99,25 +124,30 @@ const seedSessionsAndAttendance = async (
         userId,
         status: randomFrom([...STATUSES]),
       }));
-      await prisma.attendanceRecord.createMany({ data: attendanceRecords });
+      await client.attendanceRecord.createMany({
+        data: attendanceRecords,
+        skipDuplicates: true,
+      });
     }
   }
 };
 
 const main = async () => {
-  await clearDatabase();
+  await prisma.$transaction(async (tx) => {
+    await clearDatabase(tx);
 
-  const users = await seedUsers();
-  const userIds = users.map((user) => user.id);
+    const users = await seedUsers(tx);
+    const userIds = users.map((user) => user.id);
 
-  const studies = await seedStudies(userIds);
-  await seedSessionsAndAttendance(studies, userIds);
+    const studies = await seedStudies(tx, userIds);
+    await seedSessionsAndAttendance(tx, studies, userIds);
 
-  console.log(
-    `Seeded ${users.length} users, ${studies.length} studies, ` +
-      `${USER_COUNT * STUDY_COUNT} study members, ` +
-      `${STUDY_COUNT * SESSIONS_PER_STUDY * USER_COUNT} attendance records.`,
-  );
+    console.log(
+      `Seeded ${users.length} users, ${studies.length} studies, ` +
+        `${USER_COUNT * STUDY_COUNT} study members, ` +
+        `${STUDY_COUNT * SESSIONS_PER_STUDY * USER_COUNT} attendance records.`,
+    );
+  });
 };
 
 main()

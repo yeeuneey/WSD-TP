@@ -5,11 +5,7 @@ import {
   refreshTokens,
   registerUser,
 } from "./auth.service";
-import {
-  loginWithFirebase,
-  loginWithGoogle,
-  loginWithKakao,
-} from "./social.service";
+import { loginWithGoogle } from "./social.service";
 import { createError } from "../../utils/errors";
 
 const router = Router();
@@ -108,40 +104,6 @@ router.post("/google", async (req, res, next) => {
     }
 
     const result = await loginWithGoogle(idToken);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post("/kakao", async (req, res, next) => {
-  try {
-    const { accessToken } = req.body;
-    if (!accessToken) {
-      throw createError("accessToken is required", {
-        statusCode: 400,
-        code: "INVALID_PAYLOAD",
-      });
-    }
-
-    const result = await loginWithKakao(accessToken);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post("/firebase", async (req, res, next) => {
-  try {
-    const { idToken } = req.body;
-    if (!idToken) {
-      throw createError("idToken is required", {
-        statusCode: 400,
-        code: "INVALID_PAYLOAD",
-      });
-    }
-
-    const result = await loginWithFirebase(idToken);
     res.json(result);
   } catch (error) {
     next(error);
