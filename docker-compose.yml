@@ -6,6 +6,9 @@ services:
     container_name: gogo-study-app
     env_file:
       - .env
+    environment:
+      DATABASE_URL: "postgresql://gogo:gogo_pw@db:5432/gogostudy?schema=public"
+      REDIS_HOST: gogo-study-redis
     depends_on:
       - db
       - redis
@@ -21,7 +24,7 @@ services:
       POSTGRES_PASSWORD: gogo_pw
       POSTGRES_DB: gogostudy
     ports:
-      - "5432:5432"
+      - "15432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     restart: always

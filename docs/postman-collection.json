@@ -4,9 +4,18 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "BASE_URL", "value": "http://localhost:8080" },
-    { "key": "ACCESS_TOKEN", "value": "" },
-    { "key": "REFRESH_TOKEN", "value": "" }
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "ACCESS_TOKEN",
+      "value": ""
+    },
+    {
+      "key": "REFRESH_TOKEN",
+      "value": ""
+    }
   ],
   "event": [
     {
@@ -30,7 +39,7 @@
         "url": "{{BASE_URL}}/auth/register",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"홍길동\"\n}"
+          "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"\ud64d\uae38\ub3d9\"\n}"
         }
       }
     },

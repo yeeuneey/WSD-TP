@@ -1,10 +1,11 @@
 module.exports = {
+  preset: "ts-jest",
   testEnvironment: "node",
   setupFilesAfterEnv: ["<rootDir>/tests/jest.setup.js"],
-  testMatch: ["**/tests/**/*.test.js"],
+  testMatch: ["**/tests/**/*.test.(ts|js)"],
   testTimeout: 30000,
   transform: {
-    "^.+\\.tsx?$": "<rootDir>/jest.transform.js",
+    "^.+\\.ts$": "ts-jest",
   },
-  moduleFileExtensions: ["ts", "tsx", "js", "json", "node"],
+  moduleFileExtensions: ["ts", "js", "json", "node"],
 };

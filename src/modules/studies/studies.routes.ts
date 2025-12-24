@@ -69,6 +69,23 @@ export const validateMemberStatus = (status: string) => {
   return status;
 };
 
+const parseSort = (rawSort?: string) => {
+  const defaultSort = { createdAt: "desc" as const };
+  if (!rawSort) {
+    return defaultSort;
+  }
+
+  const [field, direction] = rawSort.split(":");
+  const allowedFields = ["createdAt", "title", "status"];
+  const allowedDirections = ["asc", "desc"];
+
+  if (!allowedFields.includes(field) || !allowedDirections.includes(direction)) {
+    return defaultSort;
+  }
+
+  return { [field]: direction } as Record<string, "asc" | "desc">;
+};
+
 router.post("/", authenticate, async (req, res, next) => {
   try {
     const { title, description, category, maxMembers } = req.body;
@@ -121,11 +138,12 @@ router.post("/", authenticate, async (req, res, next) => {
 
 router.get("/", authenticate, async (req, res, next) => {
   try {
-    const { q, category, status, page, pageSize } = req.query;
+    const { q, category, status, page, pageSize, sort } = req.query;
     const pagination = parsePagination(
       String(page ?? ""),
       String(pageSize ?? ""),
     );
+    const orderBy = parseSort(String(sort ?? ""));
 
     const where: any = {};
     if (q) {
@@ -144,7 +162,7 @@ router.get("/", authenticate, async (req, res, next) => {
     const [items, total] = await Promise.all([
       prisma.study.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip: pagination.skip,
         take: pagination.take,
         include: {
@@ -161,6 +179,117 @@ router.get("/", authenticate, async (req, res, next) => {
       pageSize: pagination.pageSize,
       total,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/:studyId", authenticate, requireStudyLeader("studyId"), async (req, res, next) => {
+  try {
+    const studyId = parseId(req.params.studyId, "study");
+    const { title, description, category, maxMembers } = req.body;
+
+    const data: Record<string, unknown> = {};
+    if (title !== undefined) data.title = title;
+    if (description !== undefined) data.description = description;
+    if (category !== undefined) data.category = category;
+    if (maxMembers !== undefined) {
+      const parsed = maxMembers === null ? null : Number(maxMembers);
+      if (parsed !== null && Number.isNaN(parsed)) {
+        throw createError("maxMembers must be a number", {
+          statusCode: 400,
+          code: "INVALID_PAYLOAD",
+        });
+      }
+      data.maxMembers = parsed;
+    }
+
+    if (!Object.keys(data).length) {
+      throw createError("At least one field is required to update", {
+        statusCode: 400,
+        code: "INVALID_PAYLOAD",
+      });
+    }
+
+    const updated = await prisma.study.update({
+      where: { id: studyId },
+      data,
+    });
+
+    res.json({ study: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch(
+  "/:studyId/status",
+  authenticate,
+  requireStudyLeader("studyId"),
+  async (req, res, next) => {
+    try {
+      const studyId = parseId(req.params.studyId, "study");
+      const { status } = req.body;
+      const allowed = ["RECRUITING", "CLOSED"];
+      if (!status || !allowed.includes(status)) {
+        throw createError("status must be RECRUITING or CLOSED", {
+          statusCode: 422,
+          code: "INVALID_STATUS",
+        });
+      }
+
+      const updated = await prisma.study.update({
+        where: { id: studyId },
+        data: { status },
+      });
+
+      res.json({ study: updated });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.get("/me", authenticate, async (req, res, next) => {
+  try {
+    const role = req.query.role ? String(req.query.role) : undefined;
+    const status = req.query.status ? String(req.query.status) : undefined;
+    const allowedRoles = ["LEADER", "MEMBER"];
+    if (role && !allowedRoles.includes(role)) {
+      throw createError("role must be LEADER or MEMBER", {
+        statusCode: 400,
+        code: "INVALID_ROLE",
+      });
+    }
+    const allowedStatuses = ["RECRUITING", "CLOSED"];
+    if (status && !allowedStatuses.includes(status)) {
+      throw createError("status must be RECRUITING or CLOSED", {
+        statusCode: 400,
+        code: "INVALID_STATUS",
+      });
+    }
+
+    const memberships = await prisma.studyMember.findMany({
+      where: {
+        userId: req.user!.id,
+        status: "APPROVED",
+        ...(role ? { memberRole: role } : {}),
+      },
+      include: {
+        study: {
+          include: {
+            leader: { select: { id: true, name: true, email: true } },
+            _count: { select: { StudyMembers: true, Sessions: true } },
+          },
+        },
+      },
+    });
+
+    const filtered = memberships
+      .map((m) => ({ ...m.study, memberRole: m.memberRole }))
+      .filter((item) => !status || item.status === status);
+
+    res.json({ studies: filtered });
   } catch (error) {
     next(error);
   }
@@ -185,6 +314,34 @@ router.get("/:studyId", authenticate, async (req, res, next) => {
     }
 
     res.json({ study });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/:studyId", authenticate, requireStudyLeader("studyId"), async (req, res, next) => {
+  try {
+    const studyId = parseId(req.params.studyId, "study");
+
+    await prisma.$transaction(async (tx) => {
+      const sessions = await tx.attendanceSession.findMany({
+        where: { studyId },
+        select: { id: true },
+      });
+      const sessionIds = sessions.map((s) => s.id);
+
+      if (sessionIds.length) {
+        await tx.attendanceRecord.deleteMany({
+          where: { sessionId: { in: sessionIds } },
+        });
+      }
+
+      await tx.attendanceSession.deleteMany({ where: { studyId } });
+      await tx.studyMember.deleteMany({ where: { studyId } });
+      await tx.study.delete({ where: { id: studyId } });
+    });
+
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }
@@ -278,6 +435,85 @@ router.post(
   },
 );
 
+router.patch(
+  "/:studyId/sessions/:sessionId",
+  authenticate,
+  requireStudyLeader("studyId"),
+  async (req, res, next) => {
+    try {
+      const studyId = parseId(req.params.studyId, "study");
+      const sessionId = parseId(req.params.sessionId, "session");
+      const { title, date } = req.body;
+
+      if (title === undefined && date === undefined) {
+        throw createError("title or date is required", {
+          statusCode: 400,
+          code: "INVALID_PAYLOAD",
+        });
+      }
+
+      const session = await prisma.attendanceSession.findUnique({
+        where: { id: sessionId },
+      });
+      if (!session || session.studyId !== studyId) {
+        throw createError("Attendance session not found", {
+          statusCode: 404,
+          code: "SESSION_NOT_FOUND",
+        });
+      }
+
+      const updateData: Record<string, unknown> = {};
+      if (title !== undefined) updateData.title = title;
+      if (date !== undefined) {
+        const parsed = new Date(date);
+        if (Number.isNaN(parsed.getTime())) {
+          throw createError("date must be a valid ISO string", {
+            statusCode: 400,
+            code: "INVALID_DATE",
+          });
+        }
+        updateData.date = parsed;
+      }
+
+      const updated = await prisma.attendanceSession.update({
+        where: { id: sessionId },
+        data: updateData,
+      });
+
+      res.json({ session: updated });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.delete(
+  "/:studyId/sessions/:sessionId",
+  authenticate,
+  requireStudyLeader("studyId"),
+  async (req, res, next) => {
+    try {
+      const studyId = parseId(req.params.studyId, "study");
+      const sessionId = parseId(req.params.sessionId, "session");
+
+      const session = await prisma.attendanceSession.findUnique({
+        where: { id: sessionId },
+      });
+      if (!session || session.studyId !== studyId) {
+        throw createError("Attendance session not found", {
+          statusCode: 404,
+          code: "SESSION_NOT_FOUND",
+        });
+      }
+
+      await prisma.attendanceSession.delete({ where: { id: sessionId } });
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 router.post(
   "/:studyId/sessions/:sessionId/attendance",
   authenticate,
@@ -342,11 +578,34 @@ router.get(
     try {
       const studyId = parseId(req.params.studyId, "study");
 
+      const from = req.query.from ? new Date(String(req.query.from)) : undefined;
+      const to = req.query.to ? new Date(String(req.query.to)) : undefined;
+      if (from && Number.isNaN(from.getTime())) {
+        throw createError("from must be a valid date", {
+          statusCode: 400,
+          code: "INVALID_DATE",
+        });
+      }
+      if (to && Number.isNaN(to.getTime())) {
+        throw createError("to must be a valid date", {
+          statusCode: 400,
+          code: "INVALID_DATE",
+        });
+      }
+
       const grouped = await prisma.attendanceRecord.groupBy({
         by: ["status"],
         where: {
           session: {
             studyId,
+            ...(from || to
+              ? {
+                  date: {
+                    ...(from ? { gte: from } : {}),
+                    ...(to ? { lte: to } : {}),
+                  },
+                }
+              : {}),
           },
         },
         _count: {
@@ -519,6 +778,10 @@ router.get(
     try {
       const studyId = parseId(req.params.studyId, "study");
       const { status } = req.query;
+      const { page, pageSize, skip, take } = parsePagination(
+        String(req.query.page ?? ""),
+        String(req.query.pageSize ?? ""),
+      );
       const where: any = { studyId };
       if (status) {
         where.status = String(status);
@@ -527,6 +790,8 @@ router.get(
       const members = await prisma.studyMember.findMany({
         where,
         orderBy: { joinedAt: "asc" },
+        skip,
+        take,
         include: {
           user: {
             select: { id: true, email: true, name: true, role: true, status: true },
@@ -534,7 +799,9 @@ router.get(
         },
       });
 
-      res.json({ members });
+      const total = await prisma.studyMember.count({ where });
+
+      res.json({ members, page, pageSize, total });
     } catch (error) {
       next(error);
     }
