@@ -1,8 +1,8 @@
-import express from "express";
-import cors from "cors";
-import helmet from "helmet";
-import fs from "fs";
-import path from "path";
+import express = require("express");
+import cors = require("cors");
+import helmet = require("helmet");
+import * as fs from "fs";
+import * as path from "path";
 import { requestLogger } from "./middlewares/request-logger";
 import { errorHandler } from "./middlewares/error-handler";
 import routes from "./routes";

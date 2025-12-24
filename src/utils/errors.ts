@@ -56,5 +56,16 @@ export const formatErrorResponse = (
 };
 
 export const isAppError = (err: unknown): err is AppError => {
-  return err instanceof AppError;
+  if (err instanceof AppError) {
+    return true;
+  }
+  if (!err || typeof err !== "object") {
+    return false;
+  }
+  return (
+    "statusCode" in err &&
+    typeof (err as { statusCode?: unknown }).statusCode === "number" &&
+    "code" in err &&
+    typeof (err as { code?: unknown }).code === "string"
+  );
 };

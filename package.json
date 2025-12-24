@@ -7,7 +7,7 @@
     "dev": "ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "seed": "ts-node seed/seed.ts",
+    "seed": "ts-node -P tsconfig.seed.json seed/seed.ts",
     "test": "jest --runInBand"
   },
   "keywords": [],
@@ -46,6 +46,6 @@
     "typescript": "^5.9.3"
   },
   "prisma": {
-    "seed": "ts-node seed/seed.ts"
+    "seed": "ts-node -P tsconfig.seed.json seed/seed.ts"
   }
 }

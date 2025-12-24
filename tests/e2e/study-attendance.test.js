@@ -2,6 +2,7 @@ const request = require("supertest");
 const app = require("../../src/app").default;
 const { prisma } = require("../../src/config/db");
 const { redis, ensureRedisConnection } = require("../../src/config/redis");
+const { ensureSchema } = require("../helpers/ensure-schema");
 
 const clearDatabase = async () => {
   await prisma.attendanceRecord.deleteMany();
@@ -26,6 +27,7 @@ const register = async (overrides = {}) => {
 describe("Study and Attendance flows", () => {
   beforeAll(async () => {
     await prisma.$connect();
+    await ensureSchema();
     await ensureRedisConnection();
   });
 

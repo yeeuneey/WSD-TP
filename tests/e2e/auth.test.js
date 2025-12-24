@@ -5,6 +5,7 @@ const {
   redis,
   ensureRedisConnection,
 } = require("../../src/config/redis");
+const { ensureSchema } = require("../helpers/ensure-schema");
 
 const clearDatabase = async () => {
   await prisma.attendanceRecord.deleteMany();
@@ -17,6 +18,7 @@ const clearDatabase = async () => {
 describe("Auth and User flows", () => {
   beforeAll(async () => {
     await prisma.$connect();
+    await ensureSchema();
     await ensureRedisConnection();
   });
 

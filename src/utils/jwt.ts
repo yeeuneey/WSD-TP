@@ -28,6 +28,7 @@ export interface TokenPayload extends Record<string, unknown> {
   role: string;
   type: "access" | "refresh";
   sessionId?: string;
+  jti?: string;
   iat?: number;
   exp?: number;
 }
@@ -45,6 +46,7 @@ export const signAccessToken = (user: TokenSubject): string => {
     sub: user.id,
     role: user.role,
     type: "access",
+    jti: randomUUID(),
   };
 
   return jwt.sign(payload, accessSecret, {
