@@ -7,7 +7,6 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: "postgresql://gogo:gogo_pw@db:5432/gogostudy?schema=public"
       REDIS_HOST: gogo-study-redis
     depends_on:
       - db
@@ -20,9 +19,9 @@ services:
     image: postgres:16-alpine
     container_name: gogo-study-db
     environment:
-      POSTGRES_USER: gogo
-      POSTGRES_PASSWORD: gogo_pw
-      POSTGRES_DB: gogostudy
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "15432:5432"
     volumes:
