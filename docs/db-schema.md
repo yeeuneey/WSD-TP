@@ -1,52 +1,70 @@
 # GoGoStudy DB Schema
 
-## Entities
+Prisma schema source: `prisma/schema.prisma` (PostgreSQL).
+
+## Tables
 
 ### User
-- `id` (PK)
-- `email` (unique)
-- `passwordHash`
-- `name`
-- `role` (USER | ADMIN)
-- `status` (ACTIVE | INACTIVE)
-- `provider` (LOCAL, GOOGLE, KAKAO, FIREBASE)
-- `providerId` (nullable, unique)
-- `createdAt`, `updatedAt`
+| column | type | constraints / default | notes |
+| --- | --- | --- | --- |
+| id | Int | PK, autoincrement | |
+| email | String | unique, not null | login identifier |
+| passwordHash | String | not null | hashed password |
+| name | String | not null | display name |
+| role | String | default `USER` | `USER`, `ADMIN` |
+| status | String | default `ACTIVE` | `ACTIVE`, `INACTIVE` |
+| provider | String | default `LOCAL` | `LOCAL`, `GOOGLE`, `KAKAO`, `FIREBASE` |
+| providerId | String? | unique, nullable | provider-specific id |
+| createdAt | DateTime | default `now()` | |
+| updatedAt | DateTime | `@updatedAt` | auto-updated |
+
+Indexes: `email` (unique), `providerId` (unique).
 
 ### Study
-- `id` (PK)
-- `title`
-- `description`
-- `category`
-- `maxMembers`
-- `status` (RECRUITING by default)
-- `leaderId` (FK -> User)
-- `createdAt`
+| column | type | constraints / default | notes |
+| --- | --- | --- | --- |
+| id | Int | PK, autoincrement | |
+| title | String | not null | study name |
+| description | String | not null | |
+| category | String? | nullable | |
+| maxMembers | Int? | nullable | |
+| status | String | default `RECRUITING` | lifecycle state |
+| leaderId | Int | FK -> User(id) | study owner |
+| createdAt | DateTime | default `now()` | |
+
+Relations: `leaderId` references `User.id` (`UserLeaderStudies` relation).
 
 ### StudyMember
-- `id` (PK)
-- `studyId` (FK -> Study)
-- `userId` (FK -> User)
-- `memberRole` (LEADER | MEMBER)
-- `status` (APPROVED)
-- `joinedAt`
-- Unique: `(studyId, userId)`
+| column | type | constraints / default | notes |
+| --- | --- | --- | --- |
+| id | Int | PK, autoincrement | |
+| studyId | Int | FK -> Study(id) | |
+| userId | Int | FK -> User(id) | |
+| memberRole | String | default `MEMBER` | `LEADER`, `MEMBER` |
+| status | String | default `APPROVED` | membership state |
+| joinedAt | DateTime | default `now()` | |
+
+Indexes: unique `(studyId, userId)` to prevent duplicates.
 
 ### AttendanceSession
-- `id` (PK)
-- `studyId` (FK -> Study)
-- `title`
-- `date`
-- `createdAt`
+| column | type | constraints / default | notes |
+| --- | --- | --- | --- |
+| id | Int | PK, autoincrement | |
+| studyId | Int | FK -> Study(id) | |
+| title | String | not null | session name |
+| date | DateTime | not null | session date |
+| createdAt | DateTime | default `now()` | |
 
 ### AttendanceRecord
-- `id` (PK)
-- `sessionId` (FK -> AttendanceSession)
-- `userId` (FK -> User)
-- `status` (PRESENT | LATE | ABSENT)
-- `recordedAt`
+| column | type | constraints / default | notes |
+| --- | --- | --- | --- |
+| id | Int | PK, autoincrement | |
+| sessionId | Int | FK -> AttendanceSession(id) | |
+| userId | Int | FK -> User(id) | |
+| status | String | not null | `PRESENT`, `LATE`, `ABSENT` |
+| recordedAt | DateTime | default `now()` | |
 
-## ERD (Text)
+## Relationships (ERD, text)
 - User 1 --- N Study (leader)
 - User 1 --- N StudyMember
 - Study 1 --- N StudyMember
